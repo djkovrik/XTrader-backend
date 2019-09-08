@@ -31,31 +31,45 @@ export const refreshCurrencies = functions.https.onRequest((request, response) =
             message += ` - error_code: ${error_code}\n`;
             message += ` - error_message: ${error_message}\n`;
             message += ` - timestamp: ${timestamp}\n`;
-            message += ` - First coin: ${data[0].name}\n`;
-            message += ` - Last coin: ${data[data.length - 1].name}\n`;
+            message += ` - First currency: ${data[0].name}\n`;
+            message += ` - Last currency: ${data[data.length - 1].name}\n`;
 
-            const promises: Promise<FirebaseFirestore.WriteResult>[] = new Array();
+            const database = admin.firestore();
 
-            promises.push(
-                admin.firestore()
-                    .collection('service_info')
-                    .doc('last_updated')
-                    .set({ timestamp: timestamp }, { merge: true })
-            );
+            void await database
+                .collection('service_info')
+                .doc('last_updated')
+                .set({ timestamp: timestamp }, { merge: true })
 
-            for (const coin of data) {
-                const symbol = coin.symbol
-                const name = coin.name
+            const chunkPromises: Promise<FirebaseFirestore.WriteResult[]>[] = new Array();
 
-                promises.push(
-                    admin.firestore()
-                        .collection('currencies')
-                        .doc(symbol)
-                        .set({ name: name }, { merge: true })
-                );
+            const chunked = chunk(data, 300);
+            let batchCounter = 0;
+
+            for (const singleChunk of chunked) {
+
+                const chunkBatch = database.batch();
+
+                for (const singleItem of singleChunk) {
+                    const symbol = singleItem.symbol
+                    const name = singleItem.name
+
+                    chunkBatch.set(
+                        database
+                            .collection('currencies')
+                            .doc(symbol),
+                        { name: name }, { merge: true }
+                    );
+
+                    batchCounter++;
+                }
+
+                chunkPromises.push(chunkBatch.commit());
             }
 
-            await Promise.all(promises);
+            await Promise.all(chunkPromises);
+
+            message += ` - Handled batches: ${batchCounter}\n`;
 
             response.send(message);
         })
@@ -64,3 +78,13 @@ export const refreshCurrencies = functions.https.onRequest((request, response) =
             response.send("Error occurred: " + err.statusCode);
         })
 });
+
+function chunk(array: any, size: any) {
+    const chunked_arr = [];
+    let index = 0;
+    while (index < array.length) {
+        chunked_arr.push(array.slice(index, size + index));
+        index += size;
+    }
+    return chunked_arr;
+}
