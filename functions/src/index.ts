@@ -18,7 +18,7 @@ export const refreshCurrencies = functions.https.onRequest((request, response) =
     };
 
     rp(options)
-        .then((parsed) => {
+        .then(async (parsed) => {
             const error_code = parsed.status.error_code;
             const error_message = parsed.status.error_message;
             const timestamp = parsed.status.timestamp;
@@ -33,6 +33,17 @@ export const refreshCurrencies = functions.https.onRequest((request, response) =
             message += ` - timestamp: ${timestamp}\n`;
             message += ` - First coin: ${data[0].name}\n`;
             message += ` - Last coin: ${data[data.length - 1].name}\n`;
+
+            const promises: Promise<FirebaseFirestore.WriteResult>[] = new Array();
+
+            const tp = admin.firestore()
+                .collection('service_info')
+                .doc('last_updated')
+                .set({ timestamp: timestamp }, { merge: true });
+
+            promises.push(tp);
+
+            await Promise.all(promises);
 
             response.send(message);
         })
