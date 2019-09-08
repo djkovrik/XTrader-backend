@@ -1,0 +1,1 @@
+Utility cloud functions to get and store currencies list in Firestore
