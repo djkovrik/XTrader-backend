@@ -60,10 +60,8 @@ export const refreshCurrencies = functions.https.onRequest((request, response) =
                             .doc(symbol),
                         { name: name }, { merge: true }
                     );
-
-                    batchCounter++;
                 }
-
+                batchCounter++;
                 chunkPromises.push(chunkBatch.commit());
             }
 
