@@ -36,12 +36,24 @@ export const refreshCurrencies = functions.https.onRequest((request, response) =
 
             const promises: Promise<FirebaseFirestore.WriteResult>[] = new Array();
 
-            const tp = admin.firestore()
-                .collection('service_info')
-                .doc('last_updated')
-                .set({ timestamp: timestamp }, { merge: true });
+            promises.push(
+                admin.firestore()
+                    .collection('service_info')
+                    .doc('last_updated')
+                    .set({ timestamp: timestamp }, { merge: true })
+            );
 
-            promises.push(tp);
+            for (const coin of data) {
+                const symbol = coin.symbol
+                const name = coin.name
+
+                promises.push(
+                    admin.firestore()
+                        .collection('currencies')
+                        .doc(symbol)
+                        .set({ name: name }, { merge: true })
+                );
+            }
 
             await Promise.all(promises);
 
@@ -52,13 +64,3 @@ export const refreshCurrencies = functions.https.onRequest((request, response) =
             response.send("Error occurred: " + err.statusCode);
         })
 });
-
-// async function saveData(parsed: any) {
-//     const timestamp = parsed.status.timestamp;
-//     const tp = await admin.firestore()
-//         .collection(FS_COLLECTION_NAME_SERVICE)
-//         .doc(FS_DOC_NAME_LAST_UPDATED)
-//         .set({ timestamp: timestamp }, { merge: true });
-
-//     return tp
-// }
